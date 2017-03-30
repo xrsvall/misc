@@ -1,0 +1,66 @@
+#!/bin/bash
+
+DBUG=0
+WRAP="env "
+
+### internal debug options
+
+while [[ $# -gt 0 && $1 =~ ^-d ]]
+do
+  let DBUG="-1+${#1}"
+  echo "DBUG = $DBUG"
+  shift
+  [[ $DBUG -gt 2 ]] && WRAP+="GIT_TRACE=1 "
+  [[ $DBUG -gt 3 ]] && WRAP+="GIT_TRACE_PERFORMANCE=1 "
+  [[ $DBUG -gt 4 ]] && WRAP+="GIT_TRACE_SETUP=1 "
+done
+
+
+### get the root dir of the git repo from the command line arguments
+
+gitroot=.
+
+for arg in "$@"
+do
+  if [[ -f $arg || -d $arg ]]
+  then
+    [[ $DBUG -gt 0 ]] && echo "valid path! = $arg"
+    gitroot=$arg
+    if [[ ! -d $gitroot ]]
+    then
+      gitroot=$(dirname $dir)
+    fi
+    cmd="git -C $gitroot rev-parse --show-toplevel"
+    [[ $DBUG -gt 0 ]] && echo $cmd
+    gitroot=$($cmd)
+    break
+  fi
+done
+
+gitrootR=$(python -c "import os.path; print os.path.relpath('$gitroot', '`pwd`')")
+
+[[ $DBUG -gt 0 ]] && echo ${#argA[@]}
+[[ $DBUG -gt 0 ]] && echo "$gitroot == $gitrootR"
+
+### modify command line arguments
+
+argA=()
+for arg in "$@"
+do
+  arg1=$(sed "s@$gitrootR@@" <<< $arg)
+  arg1=${arg1:-.}
+  if [ "$arg1" == "/" ]
+  then
+    arg1='.'
+  fi
+[[ $DBUG -gt 0 ]] &&   echo "$arg -> $arg1"
+  argA+=($arg1)
+done
+
+### execute modified command
+
+[[ $DBUG -gt 0 ]] && echo ${argA[@]}
+
+cmd="$WRAP git -C $gitrootR ${argA[@]}"
+[[ $DBUG -gt 0 ]] && echo $cmd
+exec $cmd
