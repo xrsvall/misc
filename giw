@@ -47,7 +47,13 @@ gitrootR=$(python -c "import os.path; print os.path.relpath('$gitroot', '`pwd`')
 argA=()
 for arg in "$@"
 do
-  arg1=$(sed "s@$gitrootR@@" <<< $arg)
+  if [[ "$gitrootR" == "." ]]
+  then
+    [[ $DBUG -gt 0 ]] && echo "do nothing as gitrootR == ."
+    arg1=$arg
+  else
+    arg1=$(sed "s@$gitrootR@@" <<< $arg)
+  fi
   arg1=${arg1:-.}
   if [ "$arg1" == "/" ]
   then
