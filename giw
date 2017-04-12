@@ -6,7 +6,7 @@ set -o errtrace
 trap 'printf "ERROR@%s:%d\n" "${BASH_SOURCE}" "${BASH_LINENO}" 1>&2' ERR
 
 DBUG=0
-WRAP=" "
+WRAP=()
 
 ### internal debug options
 
@@ -20,9 +20,9 @@ do
   fi
   echo "DBUG = $DBUG"
   shift
-  [[ $DBUG -gt 2 ]] && WRAP+="GIT_TRACE=1 "
-  [[ $DBUG -gt 3 ]] && WRAP+="GIT_TRACE_PERFORMANCE=1 "
-  [[ $DBUG -gt 4 ]] && WRAP+="GIT_TRACE_SETUP=1 "
+  [[ $DBUG -gt 2 ]] && WRAP+=("GIT_TRACE=1")
+  [[ $DBUG -gt 3 ]] && WRAP+=("GIT_TRACE_PERFORMANCE=1")
+  [[ $DBUG -gt 4 ]] && WRAP+=("GIT_TRACE_SETUP=1")
 done
 
 ### get the root dir of the git repo from the command line arguments
@@ -80,7 +80,7 @@ done
 
 ### execute modified command
 
-cmd=($WRAP git -C "$gitrootR" "${argA[@]}")
+cmd=("${WRAP[@]}" git -C "$gitrootR" "${argA[@]}")
 
 [[ $DBUG -gt 1 ]] && echo "argument size = " ${#cmd[@]}
 [[ $DBUG -gt 0 ]] && echo "command = ${cmd[*]}"
