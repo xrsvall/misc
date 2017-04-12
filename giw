@@ -1,7 +1,12 @@
 #!/bin/bash
 
+set -eu
+set -o pipefail
+set -o errtrace
+trap 'printf "ERROR@%s:%d\n" "${BASH_SOURCE}" "${BASH_LINENO}" 1>&2' ERR
+
 DBUG=0
-WRAP="env "
+WRAP=" "
 
 ### internal debug options
 
@@ -10,7 +15,6 @@ do
   if [[ $DBUG -eq 0 && $1 =~ ^-d[0-9]$ ]]
   then
     let DBUG=arg1=$(sed "s@^-d@@" <<< "$1")
-    echo "DBUG with number = $DBUG"
   else
     let DBUG="-1+${#1}"
   fi
@@ -20,7 +24,6 @@ do
   [[ $DBUG -gt 3 ]] && WRAP+="GIT_TRACE_PERFORMANCE=1 "
   [[ $DBUG -gt 4 ]] && WRAP+="GIT_TRACE_SETUP=1 "
 done
-
 
 ### get the root dir of the git repo from the command line arguments
 
@@ -36,16 +39,15 @@ do
     then
       gitroot=$(dirname "$arg")
     fi
-    cmd="git -C $gitroot rev-parse --show-toplevel"
-    [[ $DBUG -gt 0 ]] && echo "$cmd"
-    gitroot=$($cmd)
+    cmd1="git -C $gitroot rev-parse --show-toplevel"
+    [[ $DBUG -gt 1 ]] && echo "$cmd1"
+    gitroot=$($cmd1)
     break
   fi
 done
 
 gitrootR=$(python -c "import os.path; print os.path.relpath('$gitroot', '$(pwd)')")
 
-[[ $DBUG -gt 0 ]] && echo ${#argA[@]}
 [[ $DBUG -gt 0 ]] && echo "$gitroot == $gitrootR"
 
 ### modify command line arguments
@@ -55,7 +57,7 @@ for arg in "$@"
 do
   if [[ "$gitrootR" == "." ]]
   then
-    [[ $DBUG -gt 0 ]] && echo "do nothing as gitrootR == ."
+    [[ $DBUG -gt 1 ]] && echo "do nothing as gitrootR == ."
     arg1=$arg
   else
     arg1=$(sed "s@$gitrootR@@" <<< "$arg")
@@ -67,18 +69,20 @@ do
     then
       arg1='.'
     else
-      echo "strip / from start"
+      [[ $DBUG -gt 1 ]] && echo "strip / from start"
       arg1=$(sed "s@^/@@" <<< "$arg1")
     fi
   fi
-  [[ $DBUG -gt 0 ]] &&   echo "$arg -> $arg1"
+  [[ $DBUG -gt 0 ]] && echo "$arg -> $arg1"
   argA+=($arg1)
 done
+[[ $DBUG -gt 0 ]] && echo ${#argA[@]}
 
 ### execute modified command
 
-[[ $DBUG -gt 0 ]] && echo "${argA[@]}"
+cmd=($WRAP git -C "$gitrootR" "${argA[@]}")
 
-cmd="$WRAP" git -C "$gitrootR" "${argA[@]}"
-[[ $DBUG -gt 0 ]] && echo "$cmd"
-exec "$cmd"
+[[ $DBUG -gt 1 ]] && echo "argument size = " ${#cmd[@]}
+[[ $DBUG -gt 0 ]] && echo "command = ${cmd[*]}"
+
+exec env "${cmd[@]}"
