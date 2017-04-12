@@ -27,9 +27,9 @@ while [[ $# -gt 0 && $1 =~ ^-d ]]
 do
   if [[ $DBUG -eq 0 && $1 =~ ^-d[0-9]$ ]]
   then
-    let DBUG=arg1=$(sed "s@^-d@@" <<< "$1")
+    DBUG=$(sed "s@^-d@@" <<< "$1")
   else
-    let DBUG="-1+${#1}"
+    DBUG="-1+${#1}"
   fi
   dbug 0 "DBUG = $DBUG"
 
@@ -94,7 +94,10 @@ dbug 0 ${#argA[@]}
 
 ### execute modified command
 
-cmd=("${WRAP[@]}" git -C "$gitrootR" "${argA[@]}")
+
+
+
+cmd=("${WRAP[@]+"${WRAP[@]}"}" git -C "$gitrootR" "${argA[@]}")
 
 dbug 1 "argument size = " ${#cmd[@]}
 dbug 0 "command = ${cmd[*]}"
