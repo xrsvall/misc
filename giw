@@ -5,10 +5,23 @@ set -o pipefail
 set -o errtrace
 trap 'printf "ERROR@%s:%d\n" "${BASH_SOURCE}" "${BASH_LINENO}" 1>&2' ERR
 
+### global variabels
+
 DBUG=0
 WRAP=()
 
-### internal debug options
+### print argument to stderr if BDUG > first argument
+
+dbug() { 
+  level=$1
+  shift
+  if [[ "$DBUG" -gt "$level" ]]
+  then
+    printf "%s\n" "$*" >&2; 
+  fi
+}
+
+### parse internal debug options
 
 while [[ $# -gt 0 && $1 =~ ^-d ]]
 do
@@ -18,7 +31,8 @@ do
   else
     let DBUG="-1+${#1}"
   fi
-  echo "DBUG = $DBUG"
+  dbug 0 "DBUG = $DBUG"
+
   shift
   [[ $DBUG -gt 2 ]] && WRAP+=("GIT_TRACE=1")
   [[ $DBUG -gt 3 ]] && WRAP+=("GIT_TRACE_PERFORMANCE=1")
@@ -33,14 +47,14 @@ for arg in "$@"
 do
   if [[ -f $arg || -d $arg ]]
   then
-    [[ $DBUG -gt 0 ]] && echo "valid path! = $arg"
+    dbug 0 "valid path! = $arg"
     gitroot=$arg
     if [[ ! -d $gitroot ]]
     then
       gitroot=$(dirname "$arg")
     fi
     cmd1="git -C $gitroot rev-parse --show-toplevel"
-    [[ $DBUG -gt 1 ]] && echo "$cmd1"
+    dbug 1 "$cmd1"
     gitroot=$($cmd1)
     break
   fi
@@ -48,7 +62,7 @@ done
 
 gitrootR=$(python -c "import os.path; print os.path.relpath('$gitroot', '$(pwd)')")
 
-[[ $DBUG -gt 0 ]] && echo "$gitroot == $gitrootR"
+dbug 0 "$gitroot == $gitrootR"
 
 ### modify command line arguments
 
@@ -57,7 +71,7 @@ for arg in "$@"
 do
   if [[ "$gitrootR" == "." ]]
   then
-    [[ $DBUG -gt 1 ]] && echo "do nothing as gitrootR == ."
+    dbug 1 "do nothing as gitrootR == ."
     arg1=$arg
   else
     arg1=$(sed "s@$gitrootR@@" <<< "$arg")
@@ -69,20 +83,20 @@ do
     then
       arg1='.'
     else
-      [[ $DBUG -gt 1 ]] && echo "strip / from start"
+      dbug 1 "strip / from start"
       arg1=$(sed "s@^/@@" <<< "$arg1")
     fi
   fi
-  [[ $DBUG -gt 0 ]] && echo "$arg -> $arg1"
+  dbug 0 "$arg -> $arg1"
   argA+=($arg1)
 done
-[[ $DBUG -gt 0 ]] && echo ${#argA[@]}
+dbug 0 ${#argA[@]}
 
 ### execute modified command
 
 cmd=("${WRAP[@]}" git -C "$gitrootR" "${argA[@]}")
 
-[[ $DBUG -gt 1 ]] && echo "argument size = " ${#cmd[@]}
-[[ $DBUG -gt 0 ]] && echo "command = ${cmd[*]}"
+dbug 1 "argument size = " ${#cmd[@]}
+dbug 0 "command = ${cmd[*]}"
 
 exec env "${cmd[@]}"
