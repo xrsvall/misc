@@ -7,7 +7,13 @@ WRAP="env "
 
 while [[ $# -gt 0 && $1 =~ ^-d ]]
 do
-  let DBUG="-1+${#1}"
+  if [[ $DBUG -eq 0 && $1 =~ ^-d[0-9]$ ]]
+  then
+    let DBUG=arg1=$(sed "s@^-d@@" <<< "$1")
+    echo "DBUG with number = $DBUG"
+  else
+    let DBUG="-1+${#1}"
+  fi
   echo "DBUG = $DBUG"
   shift
   [[ $DBUG -gt 2 ]] && WRAP+="GIT_TRACE=1 "
@@ -28,16 +34,16 @@ do
     gitroot=$arg
     if [[ ! -d $gitroot ]]
     then
-      gitroot=$(dirname $dir)
+      gitroot=$(dirname "$arg")
     fi
     cmd="git -C $gitroot rev-parse --show-toplevel"
-    [[ $DBUG -gt 0 ]] && echo $cmd
+    [[ $DBUG -gt 0 ]] && echo "$cmd"
     gitroot=$($cmd)
     break
   fi
 done
 
-gitrootR=$(python -c "import os.path; print os.path.relpath('$gitroot', '`pwd`')")
+gitrootR=$(python -c "import os.path; print os.path.relpath('$gitroot', '$(pwd)')")
 
 [[ $DBUG -gt 0 ]] && echo ${#argA[@]}
 [[ $DBUG -gt 0 ]] && echo "$gitroot == $gitrootR"
@@ -52,21 +58,27 @@ do
     [[ $DBUG -gt 0 ]] && echo "do nothing as gitrootR == ."
     arg1=$arg
   else
-    arg1=$(sed "s@$gitrootR@@" <<< $arg)
+    arg1=$(sed "s@$gitrootR@@" <<< "$arg")
   fi
   arg1=${arg1:-.}
-  if [ "$arg1" == "/" ]
+  if [[ "$arg1" =~ ^[/] ]]
   then
-    arg1='.'
+    if [[ "$arg1" == "/" ]]
+    then
+      arg1='.'
+    else
+      echo "strip / from start"
+      arg1=$(sed "s@^/@@" <<< "$arg1")
+    fi
   fi
-[[ $DBUG -gt 0 ]] &&   echo "$arg -> $arg1"
+  [[ $DBUG -gt 0 ]] &&   echo "$arg -> $arg1"
   argA+=($arg1)
 done
 
 ### execute modified command
 
-[[ $DBUG -gt 0 ]] && echo ${argA[@]}
+[[ $DBUG -gt 0 ]] && echo "${argA[@]}"
 
-cmd="$WRAP git -C $gitrootR ${argA[@]}"
-[[ $DBUG -gt 0 ]] && echo $cmd
-exec $cmd
+cmd="$WRAP" git -C "$gitrootR" "${argA[@]}"
+[[ $DBUG -gt 0 ]] && echo "$cmd"
+exec "$cmd"
